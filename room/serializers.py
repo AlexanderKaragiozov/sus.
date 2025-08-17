@@ -4,7 +4,8 @@ from player.serializers import PlayerSerializer
 
 class RoomSerializer(serializers.ModelSerializer):
     players = PlayerSerializer(many=True, read_only=True)
-
+    spy = serializers.StringRelatedField(allow_null=True)  # Will use __str__ of Player
+    host = serializers.StringRelatedField(allow_null=True)  # Same here
     class Meta:
         model = Room
         fields = ['id', 'code', 'status', 'secret_word', 'spy', 'host', 'players']

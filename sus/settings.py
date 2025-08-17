@@ -50,8 +50,11 @@ ASGI_APPLICATION = "sus.asgi.application"
 # In-memory channel layer (for dev only)
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": ["redis://:YourStrongPassword@127.0.0.1:6379/0"],
+        },
+    },
 }
 
 

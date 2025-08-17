@@ -1,10 +1,9 @@
 import json
+
+from asgiref.sync import sync_to_async
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
-
-
-# room_code -> {session_id: {"channel": str, "is_host": bool}}
 ROOM_PLAYERS = {}
 
 
@@ -14,14 +13,15 @@ class RoomConsumer(AsyncWebsocketConsumer):
         self.room_group_name = f"game_{self.room_code}"
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
-
         self.session_id = None
         print(f"[WS] New connection to room {self.room_code}")
+
+        # Send initial state
+        await self.send_current_game_state()
 
     async def disconnect(self, close_code):
         if self.session_id and self.room_code in ROOM_PLAYERS:
             ROOM_PLAYERS[self.room_code].pop(self.session_id, None)
-            # Notify others
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {"type": "game_state_update"}
@@ -33,18 +33,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
         action = data.get("action")
 
         if action == "join":
-            self.session_id = data["player_id"]
+            self.session_id = data.get("player_id")
+            if not self.session_id:
+                return  # ignore join without session_id
 
             if self.room_code not in ROOM_PLAYERS:
                 ROOM_PLAYERS[self.room_code] = {}
 
-            # First player to join the room is host
-            is_host = len(ROOM_PLAYERS[self.room_code]) == 0
-
-            ROOM_PLAYERS[self.room_code][self.session_id] = {
-                "channel": self.channel_name,
-                "is_host": is_host,
-            }
+            ROOM_PLAYERS[self.room_code][self.session_id] = self.channel_name
 
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -58,34 +54,94 @@ class RoomConsumer(AsyncWebsocketConsumer):
                     self.room_group_name,
                     {"type": "game_state_update"}
                 )
+        elif action == "start_game":
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {"type": "game_state_update"}
+            )
 
     async def game_state_update(self, event):
         await self.send_current_game_state()
 
     @database_sync_to_async
-    def get_player_info(self, session_id, is_host):
+    def fetch_me(self):
         from player.models import Player
+        from player.serializers import PlayerSerializer
         try:
-            player = Player.objects.get(session_id=session_id)
-            return {
-                "id": session_id,
-                "name": player.name,
-                "is_host": is_host,
-            }
+            p = Player.objects.get(session_id=self.session_id)
+            return PlayerSerializer(p).data
         except Player.DoesNotExist:
-            return {
-                "id": session_id,
-                "name": "Unknown",
-                "is_host": is_host,
-            }
+            return None
+    @database_sync_to_async
+    def fetch_players(self):
+        if self.room_code not in ROOM_PLAYERS:
+            return []
+
+        players = []
+        session_ids = ROOM_PLAYERS[self.room_code].keys()
+        from player.models import Player
+
+        for session_id in session_ids:
+            try:
+                player = Player.objects.get(session_id=session_id)
+                players.append({
+                    "id": player.id,
+                    "name": player.name,
+                    "is_host": player.is_host,
+                    "is_alive": player.is_alive,
+                })
+            except Player.DoesNotExist:
+                players.append({
+                    "id": session_id,
+                    "name": "Unknown",
+                    "is_host": False,
+                    "is_alive": False,
+                })
+        return players
+
+    @database_sync_to_async
+    def fetch_room(self):
+        from room.models import Room
+        try:
+            return Room.objects.get(code=self.room_code)
+        except Room.DoesNotExist:
+            return None
+
+    @sync_to_async
+    def serialize_room(self, room):
+        if not room:
+            return "unknown"
+        from room.serializers import RoomSerializer
+        return RoomSerializer(room).data
 
     async def send_current_game_state(self):
-        players = []
-        for session_id, info in ROOM_PLAYERS.get(self.room_code, {}).items():
-            player_data = await self.get_player_info(session_id, info["is_host"])
-            players.append(player_data)
+        players = await self.fetch_players()
+        room = await self.fetch_room()
+        room_data = await self.serialize_room(room)
+        round = await self.fetch_current_round()
+        me = await self.fetch_me()
+        round_data = None
+        if round:
+            round_data = {
+                "round_start" : round.round_start_time.isoformat(),
+                "round_timer" : round.round_timer_seconds,
 
+            }
         await self.send(text_data=json.dumps({
             "players": players,
-            "status": "started" if len(players) > 1 else "waiting"
+            "room": room_data,
+            "room_status": room.status if room else "unknown",
+            "round": round_data,
+            "round_status": round.status if round else "unknown",
+            "me": me if me else "unknown",
         }))
+
+    @database_sync_to_async
+    def fetch_current_round(self):
+        from room.models import Round
+        from room.models import Room
+        try:
+            room = Room.objects.get(code=self.room_code)
+            return Round.objects.filter(room=room).latest("round_start_time")
+        except Round.DoesNotExist:
+            return None

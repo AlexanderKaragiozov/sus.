@@ -1,8 +1,12 @@
+from asgiref.sync import async_to_sync
 from celery import shared_task
+from channels.layers import get_channel_layer
 from django.utils import timezone
 from room.models import Room, Round
 from player.models import Player, Vote
 import logging
+
+from room.serializers import RoomSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +22,14 @@ def start_voting_task(room_code, round_number):
         logger.info("Round fetched: %s", round_obj)
         round_obj.status = 'voting'
         round_obj.save()
+        channel_layer = get_channel_layer()
+        logger.info ("Got channel layer: %s", type(channel_layer))
+        async_to_sync(channel_layer.group_send)(
+            f"game_{room.code}",
+            {
+                "type": "game_state_update",  # must match consumer method
+            }
+        )
         logger.info("Voting started for room %s, round %s", room_code, round_number)
     except Exception as e:
         logger.error("Error starting voting for room %s, round %s: %s", room_code, round_number, e)

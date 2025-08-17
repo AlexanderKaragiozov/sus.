@@ -57,8 +57,7 @@ class JoinRoomView(generics.GenericAPIView):
             f"game_{room.code}",
             {
                 "type": "game_state_update",  # must match consumer method
-                "players": RoomSerializer(room).data,  # or a list of players
-                "status": room.status,
+
             }
         )
         return Response({
@@ -149,8 +148,8 @@ class StartGameView(APIView):
             return Response({"error": "Room not found or already started"}, status=404)
 
         players = list(room.players.all())
-        if len(players) < 3:
-            return Response({"error": "Not enough players"}, status=400)
+        # if len(players) < 3:
+        #     return Response({"error": "Not enough players"}, status=400)
 
         # Reset players
         for p in players:
@@ -171,10 +170,17 @@ class StartGameView(APIView):
         round_start_time = timezone.now()
         # Start first round
         new_round = Round.objects.create(room=room, number=1, status='active', round_start_time=round_start_time,
-                                         round_timer_seconds=request.data.get('round_timer_seconds', 10),
+                                         round_timer_seconds=request.data.get('round_timer_seconds', 6),
                                          vote_timer_seconds=request.data.get('vote_timer_seconds', 42))
         start_voting_task.apply_async(args=[room.code, new_round.number], countdown=new_round.round_timer_seconds)
-
+        async_to_sync(channel_layer.group_send)(
+            f"game_{room.code}",
+            {
+                "type": "game_state_update",  # must match consumer method
+                "players": RoomSerializer(room).data,  # or a list of players
+                "status": room.status,
+            }
+        )
         players_data = [
             {"id": player.id, "name": player.name}
             for player in room.players.all()

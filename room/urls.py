@@ -6,7 +6,7 @@ urlpatterns = [
     # Room management
     path('create/', CreateRoomView.as_view(), name='create-room'),
     path('<str:code>/join/', JoinRoomView.as_view(), name='join-room'),
-    path('rooms/<str:code>/start/', StartGameView.as_view(), name='start-game'),
+    path('<str:code>/start/', StartGameView.as_view(), name='start-game'),
 
     # Voting
     path('<str:code>/round/<int:round_number>/vote/', RoundVoteView.as_view(), name='round-vote'),

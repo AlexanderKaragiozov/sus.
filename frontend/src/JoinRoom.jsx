@@ -13,30 +13,31 @@ export default function RoomPage() {
   const [roundLength, setRoundLength] = useState(180);
   const [voteTime, setVoteTime] = useState(30);
 
-
   // Join room
   const handleJoin = async () => {
-
     if (!joinRoomCode || !joinUsername) {
       alert("Please enter both username and room code!");
       return;
     }
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/rooms/${joinRoomCode}/join/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: joinUsername }),
-      });
+      const res = await fetch(
+        `http://127.0.0.1:8000/api/rooms/${joinRoomCode}/join/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: joinUsername }),
+        }
+      );
 
       if (!res.ok) throw new Error("Failed to join room");
 
       const data = await res.json();
       console.log("Joined room:", data);
+
       localStorage.setItem("roomCode", data.room.code);
       sessionStorage.setItem("sessionId", data.session_id);
+
       navigate(`/game/${data.room.code}`);
     } catch (error) {
       console.error(error);
@@ -46,64 +47,59 @@ export default function RoomPage() {
 
   // Create room
   const handleCreate = async () => {
-    setJoinUsername(createUsername);
     if (!createUsername) {
       alert("Please enter a username to create a room!");
       return;
     }
 
     try {
+      // Create room
       const res = await fetch("http://127.0.0.1:8000/api/rooms/create/", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          name: createUsername,
-
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: createUsername }),
       });
 
       if (!res.ok) throw new Error("Failed to create room");
 
       const data = await res.json();
       console.log("Room created:", data);
+
       alert(`Room created! Code: ${data.code}`);
       setJoinRoomCode(data.code);
-
       localStorage.setItem("roomCode", data.code);
-      try {
-        const res = await fetch(`http://127.0.0.1:8000/api/rooms/${data.code}/join/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name: createUsername }),});
-      }
-      catch (error) {
-        console.error(error);
-        alert("Error joining room");
-      }
+
+      // Join the newly created room
+      const joinRes = await fetch(
+        `http://127.0.0.1:8000/api/rooms/${data.code}/join/`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: createUsername }),
+        }
+      );
+
+      if (!joinRes.ok) throw new Error("Failed to join created room");
+
+      const joinData = await joinRes.json();
+      console.log("Joined created room:", joinData);
+      sessionStorage.setItem("sessionId", joinData.session_id);
 
       navigate(`/game/${data.code}`);
-
     } catch (error) {
       console.error(error);
-      alert("Error creating room");
+      alert("Error creating or joining room");
     }
   };
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center bg-gray-0 px-4">
       <div className="flex flex-col md:flex-row gap-7 w-full max-w-4xl">
-
         {/* Join Room Card */}
         <Card className="flex-1 p-6 shadow-lg animate-fadeIn">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold mb-2">Join a Game Room</CardTitle>
-            <p className="text-sm text-gray-500">
-              Enter your username and room code to join.
-            </p>
+            <p className="text-sm text-gray-500">Enter your username and room code to join.</p>
           </CardHeader>
           <CardContent className="mt-4 space-y-4">
             <div>
@@ -134,9 +130,7 @@ export default function RoomPage() {
         <Card className="flex-1 p-6 shadow-lg animate-fadeIn bg-black">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold mb-2 text-white">Create a Game Room</CardTitle>
-            <p className="text-sm text-gray-200">
-              Enter your username to create a new game room.
-            </p>
+            <p className="text-sm text-gray-200">Enter your username to create a new game room.</p>
           </CardHeader>
           <CardContent className="mt-4 space-y-4">
             <div>

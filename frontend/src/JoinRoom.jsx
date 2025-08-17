@@ -3,16 +3,20 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
+import { useNavigate } from "react-router-dom";
 
 export default function RoomPage() {
+  const navigate = useNavigate();
   const [joinRoomCode, setJoinRoomCode] = useState("");
   const [joinUsername, setJoinUsername] = useState("");
   const [createUsername, setCreateUsername] = useState("");
   const [roundLength, setRoundLength] = useState(180);
   const [voteTime, setVoteTime] = useState(30);
 
+
   // Join room
   const handleJoin = async () => {
+
     if (!joinRoomCode || !joinUsername) {
       alert("Please enter both username and room code!");
       return;
@@ -31,6 +35,9 @@ export default function RoomPage() {
 
       const data = await res.json();
       console.log("Joined room:", data);
+      localStorage.setItem("roomCode", data.room.code);
+      sessionStorage.setItem("sessionId", data.session_id);
+      navigate(`/game/${data.room.code}`);
     } catch (error) {
       console.error(error);
       alert("Error joining room");
@@ -39,6 +46,7 @@ export default function RoomPage() {
 
   // Create room
   const handleCreate = async () => {
+    setJoinUsername(createUsername);
     if (!createUsername) {
       alert("Please enter a username to create a room!");
       return;
@@ -61,6 +69,24 @@ export default function RoomPage() {
       const data = await res.json();
       console.log("Room created:", data);
       alert(`Room created! Code: ${data.code}`);
+      setJoinRoomCode(data.code);
+
+      localStorage.setItem("roomCode", data.code);
+      try {
+        const res = await fetch(`http://127.0.0.1:8000/api/rooms/${data.code}/join/`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ name: createUsername }),});
+      }
+      catch (error) {
+        console.error(error);
+        alert("Error joining room");
+      }
+
+      navigate(`/game/${data.code}`);
+
     } catch (error) {
       console.error(error);
       alert("Error creating room");

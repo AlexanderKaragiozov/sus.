@@ -124,7 +124,7 @@ export default function GamePage() {
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           {/* Word / Spy Display */}
           <div className="h-16 flex items-center justify-center">
-            {data?.room &&
+            {data?.room && status === "started" &&
               (data.room.spy !== data.room.host ? (
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 truncate">
                   Word: <span className="text-indigo-600">{word}</span>
@@ -222,14 +222,16 @@ export default function GamePage() {
         )}
 
         {/* Start button (only for host) */}
-        {me?.is_host === true && status !== "started" && (
+        {me?.is_host === true && status !== "started" ? (
           <Button
             className="w-full mt-8 h-12 bg-amber-400 hover:bg-amber-500 text-white font-bold rounded-lg"
             onClick={handleStartGame}
           >
             Start
           </Button>
-        )}
+        ) : status === "waiting" ? (
+          <p className="text-gray-500 mt-8 text-lg font-bold">Waiting for the host to start the game...</p>
+        ) : null}
       </main>
     </div>
   );

@@ -130,9 +130,9 @@ class RoomConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             "players": players,
             "room": room_data,
-            "room_status": room.status if room else "unknown",
+            "room_status": room.status if room else None,
             "round": round_data,
-            "round_status": round.status if round else "unknown",
+            "round_status": round.status if round else None,
             "me": me if me else "unknown",
         }))
 

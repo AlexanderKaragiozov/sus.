@@ -44,9 +44,22 @@ def start_voting_task(room_code, round_number):
 @shared_task
 def end_round_task(room_code, round_number):
     logger.info("Ending round task for room %s, round %s", room_code, round_number)
+    channel_layer = get_channel_layer()
     try:
         room = Room.objects.get(code=room_code)
+
+        room.save()
+
         round_obj = Round.objects.get(room=room, number=round_number)
+        round_obj.status = 'collecting votes'
+        round_obj.save()
+
+        async_to_sync(channel_layer.group_send)(
+            f"game_{room.code}",
+            {
+                "type": "game_state_update",  # must match consumer method
+            }
+        )
     except (Room.DoesNotExist, Round.DoesNotExist) as e:
         logger.error("Error ending round for room %s, round %s: %s", room_code, round_number, e)
         return
@@ -54,7 +67,15 @@ def end_round_task(room_code, round_number):
     # Count votes
     votes = Vote.objects.filter(room=room, round_number=round_number)
     logger.info("Votes for room %s, round %s: %s", room_code, round_number, list(votes))
+    round_obj.status = 'calculating results'
+    round_obj.save()
 
+    async_to_sync(channel_layer.group_send)(
+        f"game_{room.code}",
+        {
+            "type": "game_state_update",  # must match consumer method
+        }
+    )
     vote_counts = {}
     for vote in votes:
         vote_counts[vote.votee.id] = vote_counts.get(vote.votee.id, 0) + 1
@@ -80,7 +101,13 @@ def end_round_task(room_code, round_number):
 
     if spy.id in eliminated_players_ids:
         # Spy eliminated → let spy guess
-        room.status = 'spy_guess'
+        round_obj.status = 'guessing'
+        async_to_sync(channel_layer.group_send)(
+            f"game_{room.code}",
+            {
+                "type": "game_state_update",  # must match consumer method
+            }
+        )
         logger.info("Spy eliminated, waiting for spy guess, room %s", room_code)
     else:
         # Non-spy eliminated → spy wins, game ends
@@ -92,3 +119,9 @@ def end_round_task(room_code, round_number):
     round_obj.status = 'ended'
     round_obj.save()
     logger.info("Round %s ended for room %s", round_number, room_code)
+    async_to_sync(channel_layer.group_send)(
+        f"game_{room.code}",
+        {
+            "type": "game_state_update",  # must match consumer method
+        }
+    )

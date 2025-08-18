@@ -171,7 +171,7 @@ class StartGameView(APIView):
         # Start first round
         new_round = Round.objects.create(room=room, number=1, status='active', round_start_time=round_start_time,
                                          round_timer_seconds=request.data.get('round_timer_seconds', 6),
-                                         vote_timer_seconds=request.data.get('vote_timer_seconds', 42))
+                                         vote_timer_seconds=request.data.get('vote_timer_seconds', 5))
         start_voting_task.apply_async(args=[room.code, new_round.number], countdown=new_round.round_timer_seconds)
         async_to_sync(channel_layer.group_send)(
             f"game_{room.code}",

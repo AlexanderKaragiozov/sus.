@@ -125,6 +125,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             round_data = {
                 "round_start" : round.round_start_time.isoformat(),
                 "round_timer" : round.round_timer_seconds,
+                "vote_timer" : round.vote_timer_seconds,
 
             }
         await self.send(text_data=json.dumps({

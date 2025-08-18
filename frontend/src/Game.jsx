@@ -14,7 +14,7 @@ export default function GamePage() {
   const { roomId } = useParams();
   const roomCode = localStorage.getItem("roomCode") || roomId;
   const [players, setPlayers] = useState([]);
-  const [timeLeft, setTimeLeft] = useState();
+
   const [word, setWord] = useState(null);
   const [status, setStatus] = useState();
   const sessionId = sessionStorage.getItem("sessionId") || "";
@@ -23,24 +23,41 @@ export default function GamePage() {
   const [roundStatus, setRoundStatus] = useState(null);
   const [selectedKick, setSelectedKick] = useState("");
   const [me, setMe]= useState(null);
-  useEffect(() => {
-    if (!data?.round) return;
+  const [timeLeft, setTimeLeft] = useState(0);
 
-    const endTime =
-      new Date(data.round.round_start).getTime() +
-      data.round.round_timer * 1000;
+useEffect(() => {
+  if (!data?.round) return;
 
-    const tick = () => {
-      const now = Date.now();
-      const diff = Math.max(0, Math.floor((endTime - now) / 1000));
-      setTimeLeft(diff);
-    };
+  // Choose the correct timer based on stage
+  const timerSeconds =
+    data.round_status === "voting"
+      ? data.round.vote_timer
+      : data.round.round_timer;
 
-    tick(); // run once immediately
-    const interval = setInterval(tick, 1000);
+  // Calculate start time: now for voting, round_start for normal
+  const startTime =
+    data.round_status === "voting"
+      ? Date.now()
+      : new Date(data.round.round_start).getTime();
 
-    return () => clearInterval(interval);
-  }, [data?.round?.round_start, data?.round?.round_timer]);
+  const endTime = startTime + timerSeconds * 1000;
+
+  const tick = () => {
+    const now = Date.now();
+    const diff = Math.max(0, Math.floor((endTime - now) / 1000));
+    setTimeLeft(diff);
+  };
+
+  tick(); // run immediately
+  const interval = setInterval(tick, 1000);
+
+  return () => clearInterval(interval);
+}, [
+  data?.round?.round_start,
+  data?.round?.round_timer,
+  data?.round_status,
+  data?.round?.vote_timer,
+]);
 
   useEffect(() => {
     if (!roomCode) return;
@@ -125,7 +142,7 @@ export default function GamePage() {
           {/* Word / Spy Display */}
           <div className="h-16 flex items-center justify-center">
             {data?.room && status === "started" &&
-              (data.room.spy !== data.room.host ? (
+              (me.id !== data.room.spy.id ? (
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 truncate">
                   Word: <span className="text-indigo-600">{word}</span>
                 </h2>

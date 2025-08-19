@@ -6,6 +6,8 @@ import { Slider } from "@/components/ui/slider";
 import { useNavigate } from "react-router-dom";
 
 export default function RoomPage() {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  const wsUrl = import.meta.env.VITE_WS_URL;
   const navigate = useNavigate();
   const [joinRoomCode, setJoinRoomCode] = useState("");
   const [joinUsername, setJoinUsername] = useState("");
@@ -22,7 +24,7 @@ export default function RoomPage() {
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${joinRoomCode}/join/`,
+        `${apiUrl}/api/rooms/${joinRoomCode}/join/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -54,7 +56,7 @@ export default function RoomPage() {
 
     try {
       // Create room
-      const res = await fetch("http://127.0.0.1:8000/api/rooms/create/", {
+      const res = await fetch(`${apiUrl}/api/rooms/create/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: createUsername }),
@@ -71,7 +73,7 @@ export default function RoomPage() {
 
       // Join the newly created room
       const joinRes = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${data.code}/join/`,
+        `${apiUrl}/api/rooms/${data.code}/join/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },

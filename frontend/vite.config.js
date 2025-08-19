@@ -13,4 +13,9 @@ export default defineConfig({
     "react-dom": path.resolve("./node_modules/react-dom"),
     },
   },
+  server: {
+    host: true,
+    port: 5173,
+    allowedHosts: ['06720704731f.ngrok-free.app'], // <-- allow any host
+  },
 })

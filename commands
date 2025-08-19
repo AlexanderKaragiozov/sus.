@@ -1,0 +1,8 @@
+celery -A sus worker -l info --pool=solo
+celery -A sus beat --loglevel=info
+daphne -p 8000 sus.asgi:application
+
+--change allowed hosts
+--add cors headers
+--change environment variables
+#ngrok ngrok.exe start --all

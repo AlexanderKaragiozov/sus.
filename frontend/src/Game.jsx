@@ -5,6 +5,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group.jsx";
 import { Label } from "@/components/ui/label";
 
 export default function GamePage() {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  const wsUrl = import.meta.env.VITE_WS_URL;
   const { roomId } = useParams();
   const roomCode = localStorage.getItem("roomCode") || roomId;
   const sessionId = sessionStorage.getItem("sessionId") || "";
@@ -65,7 +67,7 @@ export default function GamePage() {
 
     try {
       const res = await fetch(
-        `http://127.0.0.1:8000/api/rooms/${roomId}/round/1/vote/`,
+        `${apiUrl}/api/rooms/${roomId}/round/1/vote/`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -88,7 +90,7 @@ export default function GamePage() {
   useEffect(() => {
     if (!roomCode) return;
 
-    const socket = new WebSocket(`ws://localhost:8000/ws/room/${roomCode}/`);
+    const socket = new WebSocket(`${wsUrl}/room/${roomCode}/`);
 
     socket.onopen = () => {
       console.log("WebSocket connected!");
@@ -139,7 +141,7 @@ export default function GamePage() {
     }
 
     try {
-      const res = await fetch(`http://127.0.0.1:8000/api/rooms/${roomCode}/start/`, {
+      const res = await fetch(`${apiUrl}/api/rooms/${roomCode}/start/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
@@ -157,7 +159,7 @@ export default function GamePage() {
 
   const restartGame = async () => {
         try {
-          const res = await fetch(`http://127.0.0.1:8000/api/rooms/${roomCode}/restart/`, {
+          const res = await fetch(`${apiUrl}/api/rooms/${roomCode}/restart/`, {
             method: "POST",
           });
 
@@ -172,7 +174,7 @@ export default function GamePage() {
   }
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden bg-gray-100">
-      <main className="flex-1 p-6 sm:p-8 bg-gray-100 overflow-auto">
+      <main className="flex-1 p-6 sm:p-8 bg-gray-300 overflow-auto">
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="h-16 flex items-center justify-center">
@@ -182,7 +184,7 @@ export default function GamePage() {
                   Word: <span className="text-indigo-600">{word}</span>
                 </h2>
               ) : (
-                <h2 className="text-md font-extrabold text-red-600 truncate">
+                <h2 className="m-30 text-md font-extrabold text-red-600">
                   You are the spy
                 </h2>
               )
@@ -276,32 +278,30 @@ export default function GamePage() {
             Waiting for the host to start the game...
           </p>
         ) : null}
-        <div>
+        <div className="flex justify-center items-center mt-1">
             {/* Winner message takes priority */}
             {data?.room?.winner ? (
-              <h1 className="font-bold mb-6 text-red-700 text-center text-6xl">
+              <h1 className="font-bold mb-6 text-red-700 text-center text-2xl">
                 {data.room.winner === "spy" ? "Spy Wins!" : "Players Win!"}
               </h1>
             ) : (
               // If no winner → show eliminated player
               data?.round?.eliminated && (
-                <h1 className="font-bold mb-6 text-red-700 text-center text-6xl m-40">
+                <h1 className="font-bold mb-6 text-red-700 text-center text-2xl m-40">
                   Eliminated: {data.round.eliminated}
                 </h1>
               )
             )}
           </div>
-        {data?.round_status=== "ended" && (
-        <div>
-          <h1>
+        {data?.round_status=== "ended" && me.is_host && (
+                  <div className="flex justify-center items-center mt-8">
             <Button
-              className="w-full mt-8 h-12 bg-red-400 hover:bg-red-500 text-white font-bold rounded-lg hover:cursor-pointer"
+              className="h-12 px-8 bg-red-400 hover:bg-red-500 text-white font-bold rounded-lg hover:cursor-pointer"
               onClick={restartGame}
             >
               Restart Game
             </Button>
-          </h1>
-        </div>)}
+          </div>)}
       </main>
     </div>
 

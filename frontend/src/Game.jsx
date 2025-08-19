@@ -155,13 +155,28 @@ export default function GamePage() {
     }
   };
 
+  const restartGame = async () => {
+        try {
+          const res = await fetch(`http://127.0.0.1:8000/api/rooms/${roomCode}/restart/`, {
+            method: "POST",
+          });
+
+          if (!res.ok) throw new Error("Failed to restart the game");
+          const responseData = await res.json();
+          console.log("Game restarted:", responseData);
+          socketRef.current?.send(JSON.stringify({ action: "restart_game" }));
+        } catch (error) {
+          console.error(error);
+          alert("Error restarting game");
+        }
+  }
   return (
     <div className="flex min-h-screen w-full overflow-x-hidden bg-gray-100">
       <main className="flex-1 p-6 sm:p-8 bg-gray-100 overflow-auto">
         {/* Header */}
         <div className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="h-16 flex items-center justify-center">
-            {data?.room && status === "started" && (
+            {data?.room && status !== "waiting" && (
               me?.id !== data.room.spy.id ? (
                 <h2 className="text-2xl sm:text-3xl font-extrabold text-gray-800 truncate">
                   Word: <span className="text-indigo-600">{word}</span>
@@ -245,11 +260,11 @@ export default function GamePage() {
                 </span>
               </div>
             ))}
-            <p>Selected kick: {selectedKick}</p>
+
           </div>
         )}
 
-        {me?.is_host && status !== "started" ? (
+        {me?.is_host && status === "waiting" ? (
           <Button
             className="w-full mt-8 h-12 bg-amber-400 hover:bg-amber-500 text-white font-bold rounded-lg"
             onClick={handleStartGame}
@@ -261,7 +276,34 @@ export default function GamePage() {
             Waiting for the host to start the game...
           </p>
         ) : null}
+        <div>
+            {/* Winner message takes priority */}
+            {data?.room?.winner ? (
+              <h1 className="font-bold mb-6 text-red-700 text-center text-6xl">
+                {data.room.winner === "spy" ? "Spy Wins!" : "Players Win!"}
+              </h1>
+            ) : (
+              // If no winner → show eliminated player
+              data?.round?.eliminated && (
+                <h1 className="font-bold mb-6 text-red-700 text-center text-6xl m-40">
+                  Eliminated: {data.round.eliminated}
+                </h1>
+              )
+            )}
+          </div>
+        {data?.round_status=== "ended" && (
+        <div>
+          <h1>
+            <Button
+              className="w-full mt-8 h-12 bg-red-400 hover:bg-red-500 text-white font-bold rounded-lg hover:cursor-pointer"
+              onClick={restartGame}
+            >
+              Restart Game
+            </Button>
+          </h1>
+        </div>)}
       </main>
     </div>
+
   );
 }

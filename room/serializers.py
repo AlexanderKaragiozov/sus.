@@ -6,9 +6,10 @@ class RoomSerializer(serializers.ModelSerializer):
     players = PlayerSerializer(many=True, read_only=True)
     spy = PlayerSerializer(allow_null=True) # Will use __str__ of Player
     host = PlayerSerializer(allow_null=True)  # Same here
+
     class Meta:
         model = Room
-        fields = ['id', 'code', 'status', 'secret_word', 'spy', 'host', 'players']
+        fields = ['id', 'code', 'status', 'secret_word', 'spy', 'host', 'players', 'winner']
 
 class RoomCreateSerializer(serializers.ModelSerializer):
     name = serializers.CharField(write_only=True)

@@ -22,7 +22,7 @@ class Room(models.Model):
         blank=True,
         related_name='hosted_rooms'
     )
-    winner = models.CharField(max_length=20, blank=True, null=True)
+    winner = models.CharField(max_length=100, null=True, blank=True )
 class Round(models.Model):
     room = models.ForeignKey(Room, on_delete=models.CASCADE, related_name='rounds')
     number = models.PositiveIntegerField()
@@ -30,3 +30,4 @@ class Round(models.Model):
     round_start_time = models.DateTimeField(null=True, blank=True)
     round_timer_seconds = models.IntegerField(default=120)
     vote_timer_seconds = models.IntegerField(default=30)
+    eliminated =  models.ForeignKey('player.Player', null=True, blank=True, on_delete=models.SET_NULL)

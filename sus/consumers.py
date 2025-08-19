@@ -59,6 +59,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 self.room_group_name,
                 {"type": "game_state_update"}
             )
+        elif action == "restart_game":
+            # Reset room or round state here
+            await self.reset_game()
+            # Broadcast updated state
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {"type": "game_state_update"}
+            )
 
     async def game_state_update(self, event):
         await self.send_current_game_state()
@@ -112,22 +120,37 @@ class RoomConsumer(AsyncWebsocketConsumer):
         if not room:
             return "unknown"
         from room.serializers import RoomSerializer
-        return RoomSerializer(room).data
+        data = RoomSerializer(room).data
+
+        return data
 
     async def send_current_game_state(self):
+        from player.models import Player
+
         players = await self.fetch_players()
         room = await self.fetch_room()
         room_data = await self.serialize_room(room)
         round = await self.fetch_current_round()
         me = await self.fetch_me()
         round_data = None
-        if round:
-            round_data = {
-                "round_start" : round.round_start_time.isoformat(),
-                "round_timer" : round.round_timer_seconds,
-                "vote_timer" : round.vote_timer_seconds,
 
+        if round:
+            eliminated_player_name = None
+            if round.eliminated_id:
+                # Fetch eliminated player safely in async context
+                try:
+                    eliminated_player = await sync_to_async(Player.objects.get)(id=round.eliminated_id)
+                    eliminated_player_name = eliminated_player.name
+                except Player.DoesNotExist:
+                    eliminated_player_name = "Unknown"
+
+            round_data = {
+                "round_start": round.round_start_time.isoformat(),
+                "round_timer": round.round_timer_seconds,
+                "vote_timer": round.vote_timer_seconds,
+                "eliminated": eliminated_player_name,
             }
+
         await self.send(text_data=json.dumps({
             "players": players,
             "room": room_data,
@@ -146,3 +169,15 @@ class RoomConsumer(AsyncWebsocketConsumer):
             return Round.objects.filter(room=room).latest("round_start_time")
         except Round.DoesNotExist:
             return None
+
+    @database_sync_to_async
+    def reset_game(self):
+        from room.models import Round, Room
+        try:
+            room = Room.objects.get(code=self.room_code)
+            # Delete rounds or reset fields
+            Round.objects.filter(room=room).delete()
+            room.status = "waiting"
+            room.save()
+        except Room.DoesNotExist:
+            pass

@@ -177,8 +177,6 @@ class StartGameView(APIView):
             f"game_{room.code}",
             {
                 "type": "game_state_update",  # must match consumer method
-                "players": RoomSerializer(room).data,  # or a list of players
-                "status": room.status,
             }
         )
         players_data = [
@@ -275,7 +273,12 @@ class RestartGameView(APIView):
         room.players.update(is_alive=True, is_spy=False)
         room.rounds.all().delete()
         Vote.objects.filter(room=room).delete()
-
+        async_to_sync(channel_layer.group_send)(
+            f"game_{room.code}",
+            {
+                "type": "game_state_update",  # must match consumer method
+            }
+        )
         return Response({"message": "Game reset", "room": RoomSerializer(room).data}
                         )
 

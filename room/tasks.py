@@ -45,20 +45,16 @@ def start_voting_task(room_code, round_number):
 def end_round_task(room_code, round_number):
     logger.info("Ending round task for room %s, round %s", room_code, round_number)
     channel_layer = get_channel_layer()
+
     try:
         room = Room.objects.get(code=room_code)
-
-        room.save()
-
         round_obj = Round.objects.get(room=room, number=round_number)
         round_obj.status = 'collecting votes'
         round_obj.save()
 
         async_to_sync(channel_layer.group_send)(
             f"game_{room.code}",
-            {
-                "type": "game_state_update",  # must match consumer method
-            }
+            {"type": "game_state_update"},
         )
     except (Room.DoesNotExist, Round.DoesNotExist) as e:
         logger.error("Error ending round for room %s, round %s: %s", room_code, round_number, e)
@@ -66,16 +62,14 @@ def end_round_task(room_code, round_number):
 
     # Count votes
     votes = Vote.objects.filter(room=room, round_number=round_number)
-    logger.info("Votes for room %s, round %s: %s", room_code, round_number, list(votes))
     round_obj.status = 'calculating results'
     round_obj.save()
 
     async_to_sync(channel_layer.group_send)(
         f"game_{room.code}",
-        {
-            "type": "game_state_update",  # must match consumer method
-        }
+        {"type": "game_state_update"},
     )
+
     vote_counts = {}
     for vote in votes:
         vote_counts[vote.votee.id] = vote_counts.get(vote.votee.id, 0) + 1
@@ -85,43 +79,45 @@ def end_round_task(room_code, round_number):
         return
 
     max_votes = max(vote_counts.values())
-    eliminated_players_ids = [pid for pid, count in vote_counts.items() if count == max_votes]
-    logger.info("Eliminated player IDs for room %s, round %s: %s", room_code, round_number, eliminated_players_ids)
+    top_voted_ids = [pid for pid, count in vote_counts.items() if count == max_votes]
 
     spy = room.spy
+    eliminated_player = None
 
-    for pid in eliminated_players_ids:
-        try:
-            player = Player.objects.get(id=pid)
-            player.is_alive = False
-            player.save()
-            logger.info("Player %s marked as eliminated", player.id)
-        except Player.DoesNotExist:
-            logger.warning("Player with id %s does not exist", pid)
-
-    if spy.id in eliminated_players_ids:
-        # Spy eliminated → let spy guess
-        round_obj.status = 'guessing'
-        async_to_sync(channel_layer.group_send)(
-            f"game_{room.code}",
-            {
-                "type": "game_state_update",  # must match consumer method
-            }
-        )
-        logger.info("Spy eliminated, waiting for spy guess, room %s", room_code)
+    if len(top_voted_ids) > 1:
+        # Tie case
+        if spy.id in top_voted_ids:
+            # Spy + non-spy tied → eliminate the non-spy
+            non_spy_ids = [pid for pid in top_voted_ids if pid != spy.id]
+            if non_spy_ids:
+                eliminated_player = Player.objects.get(id=non_spy_ids[0])
+        else:
+            # Tie but no spy involved → spy wins
+            room.status = 'ended'
+            room.winner = 'spy'
+            logger.info("Tie detected without spy → Spy wins in room %s", room_code)
     else:
-        # Non-spy eliminated → spy wins, game ends
-        room.status = 'ended'
-        room.winner = 'spy'
-        logger.info("Non-spy eliminated, spy wins, room %s ended", room_code)
+        # Single most-voted
+        eliminated_player = Player.objects.get(id=top_voted_ids[0])
 
+    # Apply elimination if found
+    if eliminated_player:
+        eliminated_player.is_alive = False
+        eliminated_player.save()
+        round_obj.eliminated = eliminated_player  # ✅ FK to Player, not just name
+        logger.info("Player %s eliminated", eliminated_player.id)
+
+    # Save state
     room.save()
     round_obj.status = 'ended'
     round_obj.save()
+
     logger.info("Round %s ended for room %s", round_number, room_code)
     async_to_sync(channel_layer.group_send)(
         f"game_{room.code}",
-        {
-            "type": "game_state_update",  # must match consumer method
-        }
+        {"type": "game_state_update"},
     )
+
+
+
+# code from gpt

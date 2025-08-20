@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Slider } from "@/components/ui/slider";
 import { useNavigate } from "react-router-dom";
+import {Label} from "@/components/ui/label.jsx";
 
 export default function RoomPage() {
   const apiUrl = import.meta.env.VITE_API_URL;
@@ -32,7 +33,10 @@ export default function RoomPage() {
         }
       );
 
-      if (!res.ok) throw new Error("Failed to join room");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to join room");
+      }
 
       const data = await res.json();
       console.log("Joined room:", data);
@@ -43,7 +47,7 @@ export default function RoomPage() {
       navigate(`/game/${data.room.code}`);
     } catch (error) {
       console.error(error);
-      alert("Error joining room");
+      alert(`Error joining room: ${error.message}`);
     }
   };
 
@@ -59,16 +63,19 @@ export default function RoomPage() {
       const res = await fetch(`${apiUrl}/api/rooms/create/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: createUsername }),
+        body: JSON.stringify({ name: createUsername, round_timer: roundLength, vote_timer: voteTime }), // Pass timer values
       });
 
-      if (!res.ok) throw new Error("Failed to create room");
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || "Failed to create room");
+      }
 
       const data = await res.json();
       console.log("Room created:", data);
 
       alert(`Room created! Code: ${data.code}`);
-      setJoinRoomCode(data.code);
+      setJoinRoomCode(data.code); // Pre-fill join code for convenience
       localStorage.setItem("roomCode", data.code);
 
       // Join the newly created room
@@ -81,7 +88,10 @@ export default function RoomPage() {
         }
       );
 
-      if (!joinRes.ok) throw new Error("Failed to join created room");
+      if (!joinRes.ok) {
+        const errorData = await joinRes.json();
+        throw new Error(errorData.detail || "Failed to join created room");
+      }
 
       const joinData = await joinRes.json();
       console.log("Joined created room:", joinData);
@@ -90,89 +100,120 @@ export default function RoomPage() {
       navigate(`/game/${data.code}`);
     } catch (error) {
       console.error(error);
-      alert("Error creating or joining room");
+      alert(`Error creating or joining room: ${error.message}`);
     }
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center bg-gray-0 px-4">
-      <div className="flex flex-col md:flex-row gap-7 w-full max-w-4xl">
+    <div className="min-h-screen flex flex-col items-center bg-gray-100 pt-24 pb-8 font-['Orbitron'] text-gray-800">
+      <h1 className="text-4xl sm:text-5xl md:text-6xl font-extrabold mb-10 text-blue-900 drop-shadow-lg text-center px-4">
+        sus.
+      </h1>
+      <div className="flex flex-col md:flex-row gap-8 w-full max-w-5xl px-4">
         {/* Join Room Card */}
-        <Card className="flex-1 p-6 shadow-lg animate-fadeIn">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold mb-2">Join a Game Room</CardTitle>
-            <p className="text-sm text-gray-500">Enter your username and room code to join.</p>
+        {/* Added min-w-0 here */}
+        <Card className="flex-1 min-w-0 p-6 sm:p-8 bg-gray-50 rounded-2xl shadow-xl border-4 border-gray-300 transition-all duration-300 hover:shadow-2xl">
+          <CardHeader className="text-center mb-6">
+            <CardTitle className="text-2xl sm:text-3xl font-extrabold mb-2 text-gray-900">
+              JOIN GAME ROOM
+            </CardTitle>
+            <p className="text-sm sm:text-base text-gray-600">
+              ENTER YOUR USERNAME AND ROOM CODE.
+            </p>
           </CardHeader>
-          <CardContent className="mt-4 space-y-4">
+          <CardContent className="space-y-6">
             <div>
-              <label className="block mb-1 text-sm font-medium text-gray-700">Username</label>
+              <Label htmlFor="join-username" className="block mb-2 text-sm sm:text-base font-medium text-gray-700 uppercase">
+                Username
+              </Label>
               <Input
-                className="h-14 text-lg font-bold"
-                placeholder="Your username"
+                id="join-username"
+                className="h-12 sm:h-14 text-lg sm:text-xl font-bold bg-gray-200 border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder:text-gray-500 transition-colors duration-200"
+                placeholder="YOUR PLAYER NAME"
                 value={joinUsername}
                 onChange={(e) => setJoinUsername(e.target.value)}
               />
             </div>
             <div>
-              <label className="block mb-1 text-sm font-medium text-gray-700">Room Code</label>
+              <Label htmlFor="join-room-code" className="block mb-2 text-sm sm:text-base font-medium text-gray-700 uppercase">
+                Room Code
+              </Label>
               <Input
-                className="h-14 text-lg font-bold"
-                placeholder="Enter room code"
+                id="join-room-code"
+                className="h-12 sm:h-14 text-lg sm:text-xl font-bold bg-gray-200 border-2 border-gray-300 focus:border-blue-500 focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder:text-gray-500 transition-colors duration-200"
+                placeholder="ENTER ROOM CODE"
                 value={joinRoomCode}
-                onChange={(e) => setJoinRoomCode(e.target.value)}
+                onChange={(e) => setJoinRoomCode(e.target.value.toUpperCase())} // Auto-uppercase code
               />
             </div>
-            <Button className="w-full mt-2 hover:cursor-pointer" onClick={handleJoin}>
+            <Button
+              className="w-full py-3 sm:py-4 mt-4 h-auto bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg sm:text-xl rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 uppercase tracking-wide"
+              onClick={handleJoin}
+            >
               Join Room
             </Button>
           </CardContent>
         </Card>
 
         {/* Create Room Card */}
-        <Card className="flex-1 p-6 shadow-lg animate-fadeIn bg-black">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold mb-2 text-white">Create a Game Room</CardTitle>
-            <p className="text-sm text-gray-200">Enter your username to create a new game room.</p>
+        {/* Added min-w-0 here */}
+        <Card className="flex-1 min-w-0 p-6 sm:p-8 bg-blue-950 rounded-2xl shadow-xl border-4 border-blue-800 transition-all duration-300 hover:shadow-2xl">
+          <CardHeader className="text-center mb-6">
+            <CardTitle className="text-2xl sm:text-3xl font-extrabold mb-2 text-teal-400">
+              CREATE NEW GAME
+            </CardTitle>
+            <p className="text-sm sm:text-base text-blue-200">
+              SET UP GAME SETTINGS AND GET YOUR ROOM CODE.
+            </p>
           </CardHeader>
-          <CardContent className="mt-4 space-y-4">
+          <CardContent className="space-y-6">
             <div>
-              <label className="block mb-1 text-sm font-medium text-white">Username</label>
+              <Label htmlFor="create-username" className="block mb-2 text-sm sm:text-base font-medium text-blue-200 uppercase">
+                Username
+              </Label>
               <Input
-                className="h-14 text-lg font-bold text-white"
-                placeholder="Your username"
+                id="create-username"
+                className="h-12 sm:h-14 text-lg sm:text-xl font-bold bg-blue-900 border-2 border-blue-700 focus:border-teal-500 focus:ring-2 focus:ring-teal-500 text-white placeholder:text-blue-400 transition-colors duration-200"
+                placeholder="YOUR HOST NAME"
                 value={createUsername}
                 onChange={(e) => setCreateUsername(e.target.value)}
               />
             </div>
 
-            {/* Round Length */}
-            <label className="block mb-1 text-sm font-medium text-white">
-              Round Length: {roundLength} seconds
-            </label>
-            <Slider
-              value={[roundLength]}
-              min={60}
-              max={400}
-              step={10}
-              onValueChange={(value) => setRoundLength(value[0])}
-              className="w-full [&_.relative]:bg-gray-400 [&_.bg-primary]:bg-white"
-            />
+            {/* Round Length Slider */}
+            <div>
+              <Label className="block mb-3 text-sm sm:text-base font-medium text-blue-200 uppercase">
+                Round Length:{" "}
+                <span className="text-teal-400 text-lg sm:text-xl">{roundLength}</span> seconds
+              </Label>
+              <Slider
+                value={[roundLength]}
+                min={60}
+                max={400}
+                step={10}
+                onValueChange={(value) => setRoundLength(value[0])}
+                className="w-full [&_span[data-state=checked]]:bg-teal-500 [&_span]:bg-blue-700 [&_span]:h-3 [&_span]:rounded-full [&_span]:transition-all [&_span]:duration-200 [&_span]:shadow-inner [&_span[role=slider]]:bg-teal-400 [&_span[role=slider]]:w-6 [&_span[role=slider]]:h-6 [&_span[role=slider]]:border-4 [&_span[role=slider]]:border-teal-200 [&_span[role=slider]]:shadow-xl [&_span[role=slider]]:focus-visible:ring-teal-300 [&_span[role=slider]]:hover:scale-110 [&_span[role=slider]]:hover:bg-teal-300"
+              />
+            </div>
 
-            {/* Vote Time */}
-            <label className="block mb-1 text-sm font-medium text-white">
-              Vote Time: {voteTime} seconds
-            </label>
-            <Slider
-              value={[voteTime]}
-              min={10}
-              max={60}
-              step={5}
-              onValueChange={(value) => setVoteTime(value[0])}
-              className="w-full [&_.relative]:bg-gray-400 [&_.bg-primary]:bg-white"
-            />
+            {/* Vote Time Slider */}
+            <div>
+              <Label className="block mb-3 text-sm sm:text-base font-medium text-blue-200 uppercase">
+                Vote Time:{" "}
+                <span className="text-teal-400 text-lg sm:text-xl">{voteTime}</span> seconds
+              </Label>
+              <Slider
+                value={[voteTime]}
+                min={10}
+                max={60}
+                step={5}
+                onValueChange={(value) => setVoteTime(value[0])}
+                className="w-full [&_span[data-state=checked]]:bg-teal-500 [&_span]:bg-blue-700 [&_span]:h-3 [&_span]:rounded-full [&_span]:transition-all [&_span]:duration-200 [&_span]:shadow-inner [&_span[role=slider]]:bg-teal-400 [&_span[role=slider]]:w-6 [&_span[role=slider]]:h-6 [&_span[role=slider]]:border-4 [&_span[role=slider]]:border-teal-200 [&_span[role=slider]]:shadow-xl [&_span[role=slider]]:focus-visible:ring-teal-300 [&_span[role=slider]]:hover:scale-110 [&_span[role=slider]]:hover:bg-teal-300"
+              />
+            </div>
 
             <Button
-              className="w-full mt-2 hover:cursor-pointer bg-white text-black hover:bg-black hover:text-white hover:border-3 hover:border-cyan-400"
+              className="w-full py-3 sm:py-4 mt-4 h-auto bg-teal-500 hover:bg-teal-600 text-white font-bold text-lg sm:text-xl rounded-lg shadow-md hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5 uppercase tracking-wide"
               onClick={handleCreate}
             >
               Create Room

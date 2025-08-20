@@ -1,6 +1,7 @@
 celery -A sus worker -l info --pool=solo
 celery -A sus beat --loglevel=info
 daphne -p 8000 sus.asgi:application
+npm run dev
 
 --change allowed hosts
 --add cors headers
